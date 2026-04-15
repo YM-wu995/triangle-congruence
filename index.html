@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全等三角形平移旋转互动 - 六年级数学</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f8ff;
+            padding: 15px;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 20px;
+            text-align: center;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 500px;
+            background-color: #fff;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            cursor: grab;
+            overflow: hidden;
+        }
+        .container:active { cursor: grabbing; }
+        .triangle {
+            position: absolute;
+            transition: transform 0.2s ease;
+            transform-origin: center;
+        }
+        .triangle path {
+            fill: rgba(52, 152, 219, 0.5);
+            stroke: #2980b9;
+            stroke-width: 2;
+        }
+        .triangle text {
+            font-size: 14px;
+            fill: #2c3e50;
+            user-select: none;
+        }
+        .info {
+            margin-top: 15px;
+            color: #34495e;
+            line-height: 1.6;
+            text-align: center;
+            font-size: 14px;
+            max-width: 800px;
+        }
+        .info span { color: #e74c3c; font-weight: bold; }
+        @media (max-width: 600px) {
+            .container { height: 350px; }
+            .triangle text { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>全等三角形平移旋转互动演示（三组全等）</h1>
+    <div class="container" id="canvas"></div>
+    <div class="info">
+        操作说明：<br>
+        1. <span>鼠标拖拽</span> 三角形可平移 | 2. <span>鼠标滚轮</span> 可旋转三角形<br>
+        3. 平移旋转后观察是否完全重合 → 验证全等
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const triangleGroups = [
+            {
+                tri1: { points: [{x:100,y:200,label:'A'},{x:180,y:200,label:'B'},{x:140,y:120,label:'C'}], pos: {x:50,y:50} },
+                tri2: { points: [{x:100,y:200,label:'A₁'},{x:180,y:200,label:'B₁'},{x:140,y:120,label:'C₁'}], pos: {x:300,y:50} }
+            },
+            {
+                tri1: { points: [{x:100,y:200,label:'D'},{x:100,y:280,label:'E'},{x:60,y:240,label:'F'}], pos: {x:50,y:250} },
+                tri2: { points: [{x:100,y:200,label:'D₁'},{x:100,y:280,label:'E₁'},{x:60,y:240,label:'F₁'}], pos: {x:300,y:250} }
+            },
+            {
+                tri1: { points: [{x:100,y:200,label:'G'},{x:160,y:260,label:'H'},{x:40,y:260,label:'I'}], pos: {x:50,y:450} },
+                tri2: { points: [{x:100,y:200,label:'G₁'},{x:160,y:260,label:'H₁'},{x:40,y:260,label:'I₁'}], pos: {x:300,y:450} }
+            }
+        ];
+
+        function createTriangle(triData) {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.classList.add('triangle');
+            g.style.left = `${triData.pos.x}px`;
+            g.style.top = `${triData.pos.y}px`;
+
+            const pathPoints = triData.points.map(p => `${p.x},${p.y}`).join(' ');
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute('d', `M ${pathPoints} Z`);
+            g.appendChild(path);
+
+            triData.points.forEach(p => {
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute('x', p.x); text.setAttribute('y', p.y - 8);
+                text.textContent = p.label; g.appendChild(text);
+            });
+
+            let isDragging = false, offsetX, offsetY;
+            g.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                const rect = g.getBoundingClientRect();
+                offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top;
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const canvasRect = canvas.getBoundingClientRect();
+                const x = e.clientX - canvasRect.left - offsetX;
+                const y = e.clientY - canvasRect.top - offsetY;
+                g.style.left = `${x}px`; g.style.top = `${y}px`;
+            });
+
+            document.addEventListener('mouseup', () => isDragging = false);
+
+            g.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const currentRot = getRotationDegrees(g);
+                const newRot = currentRot + (e.deltaY > 0 ? -5 : 5);
+                g.style.transform = `rotate(${newRot}deg)`;
+            });
+
+            return g;
+        }
+
+        function getRotationDegrees(obj) {
+            const style = window.getComputedStyle(obj);
+            const matrix = new WebKitCSSMatrix(style.transform);
+            const angle = Math.round(Math.atan2(matrix.m21, matrix.m11) * (180 / Math.PI));
+            return (angle < 0) ? angle + 360 : angle;
+        }
+
+        triangleGroups.forEach((group) => {
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            canvas.appendChild(svg);
+            svg.appendChild(createTriangle(group.tri1));
+            svg.appendChild(createTriangle(group.tri2));
+        });
+    </script>
+</body>
+</html>
